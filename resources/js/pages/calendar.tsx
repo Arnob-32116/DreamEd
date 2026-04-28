@@ -1,12 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
-import { CalendarEvent, EventCategory } from './calendar-types';
-import CalendarHeader from './CalendarHeader';
-import MonthGrid from './MonthGrid';
-import AgendaView from './AgendaView';
-import EventModal from './EventModal';
-import EventDetailPanel from './EventDetailPanel';
-import MiniCalendar from './MiniCalendar';
+import { CalendarEvent, EventCategory } from '@/layouts/CalanderPage/calendar-types';
+import CalendarHeader from '@/layouts/CalanderPage/CalendarHeader';
+import MonthGrid from '@/layouts/CalanderPage/MonthGrid';
+import AgendaView from '@/layouts/CalanderPage/AgendaView';
+import EventModal from '@/layouts/CalanderPage/EventModal';
+import EventDetailPanel from '@/layouts/CalanderPage/EventDetailPanel';
+import MiniCalendar from '@/layouts/CalanderPage/MiniCalendar';
 
 type View = 'month' | 'week' | 'day' | 'agenda';
 
@@ -17,40 +17,39 @@ interface CalendarPageProps {
     month: number;
 }
 
-const URGENCY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-
 export default function CalendarIndex({ events, categories, year, month }: CalendarPageProps) {
     const [view, setView] = useState<View>('month');
     const [showModal, setShowModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
     const [detailEvent, setDetailEvent] = useState<CalendarEvent | null>(null);
     const [defaultDate, setDefaultDate] = useState<Date | undefined>();
-    const [sidebarOpen, setSidebarOpen] = useState(true);
-
-    // Urgency filter
     const [urgencyFilter, setUrgencyFilter] = useState<string[]>([]);
 
     const filteredEvents = urgencyFilter.length === 0
         ? events
         : events.filter(e => urgencyFilter.includes(e.urgency));
 
-    function navigate(newYear: number, newMonth: number) {
-        router.get(route('calendar.index'), { year: newYear, month: newMonth }, { preserveState: true });
+    function goToMonth(newYear: number, newMonth: number) {
+        router.get(
+            '/calendar',
+            { year: newYear, month: newMonth },
+            { preserveState: false, preserveScroll: false }
+        );
     }
 
     function goPrev() {
-        if (month === 1) navigate(year - 1, 12);
-        else navigate(year, month - 1);
+        if (month === 1) goToMonth(year - 1, 12);
+        else goToMonth(year, month - 1);
     }
 
     function goNext() {
-        if (month === 12) navigate(year + 1, 1);
-        else navigate(year, month + 1);
+        if (month === 12) goToMonth(year + 1, 1);
+        else goToMonth(year, month + 1);
     }
 
     function goToday() {
         const now = new Date();
-        navigate(now.getFullYear(), now.getMonth() + 1);
+        goToMonth(now.getFullYear(), now.getMonth() + 1);
     }
 
     function handleDayClick(date: Date) {
@@ -71,7 +70,7 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
 
     function handleDelete(id: number) {
         if (!confirm('Delete this event?')) return;
-        router.delete(route('events.destroy', id), {
+        router.delete(`/events/${id}`, {
             onSuccess: () => setDetailEvent(null),
         });
     }
@@ -83,10 +82,10 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
     }
 
     const urgencySummary = [
-        { key: 'critical', label: 'Critical', dot: 'bg-red-500',     text: 'text-red-600'     },
-        { key: 'high',     label: 'High',     dot: 'bg-orange-400',   text: 'text-orange-600'  },
-        { key: 'medium',   label: 'Medium',   dot: 'bg-amber-400',    text: 'text-amber-600'   },
-        { key: 'low',      label: 'Low',      dot: 'bg-emerald-400',  text: 'text-emerald-600' },
+        { key: 'critical', label: 'Critical', dot: 'bg-red-500',    text: 'text-red-600'     },
+        { key: 'high',     label: 'High',     dot: 'bg-orange-400',  text: 'text-orange-600'  },
+        { key: 'medium',   label: 'Medium',   dot: 'bg-amber-400',   text: 'text-amber-600'   },
+        { key: 'low',      label: 'Low',      dot: 'bg-emerald-400', text: 'text-emerald-600' },
     ];
 
     const upcomingEvents = [...events]
@@ -100,11 +99,7 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
 
             <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
                 {/* Sidebar */}
-                <aside className={`
-                    flex-col w-64 bg-white border-r border-slate-100 p-4 gap-5 overflow-y-auto
-                    transition-all duration-300 hidden lg:flex
-                    ${sidebarOpen ? 'lg:flex' : 'lg:hidden'}
-                `}>
+                <aside className="hidden lg:flex flex-col w-64 bg-white border-r border-slate-100 p-4 gap-5 overflow-y-auto">
                     {/* Logo */}
                     <div className="flex items-center gap-2 px-1 mb-1">
                         <div className="w-8 h-8 bg-indigo-600 rounded-xl flex items-center justify-center">
@@ -128,15 +123,18 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
 
                     {/* Mini calendar */}
                     <MiniCalendar
-                        year={year} month={month}
+                        year={year}
+                        month={month}
                         events={events}
                         onDateSelect={handleDayClick}
-                        onMonthChange={navigate}
+                        onMonthChange={goToMonth}
                     />
 
                     {/* Urgency filter */}
                     <div>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Filter by Urgency</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+                            Filter by Urgency
+                        </p>
                         <div className="flex flex-col gap-1">
                             {urgencySummary.map(u => {
                                 const count = events.filter(e => e.urgency === u.key).length;
@@ -169,7 +167,9 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
                     {/* Upcoming events */}
                     {upcomingEvents.length > 0 && (
                         <div>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">Upcoming</p>
+                            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-1">
+                                Upcoming
+                            </p>
                             <div className="flex flex-col gap-1.5">
                                 {upcomingEvents.map(e => (
                                     <button
@@ -177,7 +177,10 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
                                         onClick={() => setDetailEvent(e)}
                                         className="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-50 transition-colors text-left w-full"
                                     >
-                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: e.color }} />
+                                        <span
+                                            className="w-2 h-2 rounded-full shrink-0"
+                                            style={{ backgroundColor: e.color }}
+                                        />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-xs font-semibold text-slate-700 truncate">{e.title}</p>
                                             <p className="text-[10px] text-slate-400">
@@ -194,7 +197,8 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
                 {/* Main content */}
                 <div className="flex-1 flex flex-col overflow-hidden">
                     <CalendarHeader
-                        year={year} month={month}
+                        year={year}
+                        month={month}
                         view={view}
                         onViewChange={setView}
                         onPrev={goPrev}
@@ -203,13 +207,20 @@ export default function CalendarIndex({ events, categories, year, month }: Calen
                         onAddEvent={() => { setEditingEvent(null); setDefaultDate(undefined); setShowModal(true); }}
                     />
 
-                    {(view === 'month' || view === 'week' || view === 'day') && (
+                    {view === 'month' && (
                         <MonthGrid
-                            year={year} month={month}
+                            year={year}
+                            month={month}
                             events={filteredEvents}
                             onDayClick={handleDayClick}
                             onEventClick={handleEventClick}
                         />
+                    )}
+
+                    {(view === 'week' || view === 'day') && (
+                        <div className="flex-1 flex items-center justify-center text-slate-400">
+                            <p className="text-sm">Week / Day view coming soon</p>
+                        </div>
                     )}
 
                     {view === 'agenda' && (

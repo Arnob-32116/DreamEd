@@ -100,7 +100,7 @@ export default function MonthGrid({ year, month, events, onDayClick, onEventClic
                                     <EventChip
                                         key={event.id}
                                         event={event}
-                                        onClick={(e) => { e.stopPropagation?.(); onEventClick(event); }}
+                                        onClick={(e) => { e.stopPropagation(); onEventClick(event); }}
                                         compact
                                     />
                                 ))}

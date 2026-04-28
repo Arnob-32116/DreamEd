@@ -26,9 +26,10 @@ class EventController extends Controller
             ->get()
             ->map(fn($e) => $this->formatEvent($e));
 
-        $categories = EventCategory::where('user_id', Auth::id())->get();
-
-        return Inertia::render('Calendar/Index', [
+       $categories = EventCategory::query()
+    ->where('user_id', Auth::id())
+    ->get();
+        return Inertia::render('calendar', [
             'events'     => $events,
             'categories' => $categories,
             'year'       => $year,
@@ -64,36 +65,47 @@ class EventController extends Controller
 
     public function update(Request $request, Event $event)
     {
-        $this->authorize('update', $event);
-
-        $validated = $request->validate([
-            'title'          => 'sometimes|required|string|max:255',
-            'description'    => 'nullable|string',
-            'location'       => 'nullable|string|max:255',
-            'start_at'       => 'sometimes|required|date',
-            'end_at'         => 'sometimes|required|date|after_or_equal:start_at',
-            'all_day'        => 'boolean',
-            'urgency'        => 'sometimes|in:low,medium,high,critical',
-            'color'          => 'nullable|string|max:7',
-            'category_id'    => 'nullable|exists:event_categories,id',
-            'recurrence'     => 'nullable|in:none,daily,weekly,monthly,yearly',
-            'recurrence_end' => 'nullable|date',
-            'is_completed'   => 'boolean',
-            'reminders'      => 'nullable|array',
-            'attendees'      => 'nullable|array',
-        ]);
-
-        $event->update($validated);
-
-        return back()->with('success', 'Event updated.');
+    if ($event->user_id !== Auth::id()) {
+        abort(403);
     }
 
-    public function destroy(Event $event)
-    {
-        $this->authorize('delete', $event);
-        $event->delete();
-        return back()->with('success', 'Event deleted.');
+    $validated = $request->validate([
+        'title'          => 'sometimes|required|string|max:255',
+        'description'    => 'nullable|string',
+        'location'       => 'nullable|string|max:255',
+        'start_at'       => 'sometimes|required|date',
+        'end_at'         => 'sometimes|required|date|after_or_equal:start_at',
+        'all_day'        => 'boolean',
+        'urgency'        => 'sometimes|in:low,medium,high,critical',
+        'color'          => 'nullable|string|max:7',
+        'category_id'    => 'nullable|exists:event_categories,id',
+        'recurrence'     => 'nullable|in:none,daily,weekly,monthly,yearly',
+        'recurrence_end' => 'nullable|date',
+        'is_completed'   => 'boolean',
+        'reminders'      => 'nullable|array',
+        'attendees'      => 'nullable|array',
+    ]);
+
+    $event->update($validated);
+
+    return back()->with('success', 'Event updated.');
     }
+
+   
+   public function destroy(Event $event)
+{
+    if ($event->user_id !== Auth::id()) {
+        abort(403);
+    }
+
+    $event->forceDelete(); // if using SoftDeletes
+    // OR
+    Event::destroy($event->id); // alternative
+    
+    return back()->with('success', 'Event deleted.');
+}
+
+
 
     private function formatEvent(Event $event): array
     {
@@ -113,3 +125,4 @@ class EventController extends Controller
         ];
     }
 }
+
