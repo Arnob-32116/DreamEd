@@ -1,15 +1,19 @@
 export interface BlogPost {
-  id: number;
-  title: string;
-  category: string;
-  author: string;
-  authorAvatar: string;
-  date: string;
-  readTime: string;
-  excerpt: string;
-  shares: number;
-  image?: string;
-  imageColor?: string;
+    id: number;
+    title: string;
+    slug?: string;
+    category: string;
+    author: string;
+    authorAvatar: string;
+    date: string;
+    readTime: string;
+    excerpt: string;
+    shares: number;
+    image?: string;
+    imageColor?: string;
+    cover_image?: string | null;  // ← add this
+    status?: string;              // ← add this
+    content?: string;             // ← add this
 }
 
 export const CATEGORIES = ["All", "Study Abroad", "Student Life", "Career", "Programs", "Side Hustle", "Visa Guide", "Education"];

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { BlogPost } from "../data/blogData";
+import type { BlogPost } from "@/layouts/BlogPageLayout/blogData";
 import "./BlogCard.css";
 
 interface Props {
