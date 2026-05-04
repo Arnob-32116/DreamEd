@@ -11,18 +11,18 @@ class BlogController extends Controller
 {
     public function index(Request $request)
     {
-        $category = $request->string('category', 'All');
-        $search   = $request->string('search', '');
+        $category = (string) $request->get('category', 'All');
+        $search   = (string) $request->get('search', '');
 
-        $query = BlogPost::published()
+        $query = BlogPost::where('status', 'published')
             ->with('user')
             ->orderByDesc('published_at');
 
-        if ($category && $category !== 'All') {
-            $query->byCategory($category);
+        if (!empty($category) && $category !== 'All') {
+            $query->where('category', $category);
         }
 
-        if ($search) {
+        if (!empty($search)) {
             $query->where(function ($q) use ($search) {
                 $q->where('title',   'like', "%{$search}%")
                   ->orWhere('excerpt', 'like', "%{$search}%")
@@ -49,27 +49,29 @@ class BlogController extends Controller
             'status'      => 'nullable|in:draft,published',
         ]);
 
-        $status = $validated['status'] ?? 'published';
-
         BlogPost::create([
-            ...$validated,
+            'title'        => $validated['title'],
+            'excerpt'      => $validated['excerpt'] ?? null,
+            'content'      => $validated['content'],
+            'category'     => $validated['category'],
+            'cover_image'  => $validated['cover_image'] ?? null,
             'user_id'      => Auth::id(),
-            'status'       => $status,
-            'published_at' => $status === 'published' ? now() : null,
+            'status'       => 'published',
+            'published_at' => now(),
         ]);
 
         return redirect()->route('blog.index')->with('success', 'Blog post created.');
     }
 
     public function destroy(BlogPost $blogPost)
-{
-    if ($blogPost->user_id !== Auth::id()) {
-        abort(403);
-    }
+    {
+        if ($blogPost->user_id !== Auth::id()) {
+            abort(403);
+        }
 
-    BlogPost::destroy($blogPost->id); // ← use this instead
-    return back()->with('success', 'Blog post deleted.');
-}
+        BlogPost::destroy($blogPost->id);
+        return back()->with('success', 'Blog post deleted.');
+    }
 
     private function formatPost(BlogPost $post): array
     {
@@ -77,23 +79,27 @@ class BlogController extends Controller
             'id'           => $post->id,
             'title'        => $post->title,
             'slug'         => $post->slug,
-            'excerpt'      => $post->excerpt,
+            'excerpt'      => $post->excerpt ?? '',
             'content'      => $post->content,
             'category'     => $post->category,
             'cover_image'  => $post->cover_image,
             'status'       => $post->status,
-            'shares'       => $post->shares,
-            'views'        => $post->views,
+            'shares'       => $post->shares ?? 0,
+            'views'        => $post->views ?? 0,
             'readTime'     => $post->read_time,
             'author'       => $post->user->name ?? 'Unknown',
             'authorAvatar' => $post->author_avatar,
-            'date'         => $post->published_at?->format('M d, Y') ?? $post->created_at->format('M d, Y'),
+            'date'         => $post->published_at?->format('M d, Y')
+                              ?? $post->created_at->format('M d, Y'),
             'imageColor'   => null,
         ];
     }
 
     private function getCategories(): array
     {
-        return ['All', 'Study Abroad', 'Student Life', 'Career', 'Programs', 'Side Hustle', 'Visa Guide', 'Education', 'Scholarship'];
+        return [
+            'All', 'Study Abroad', 'Student Life', 'Career',
+            'Programs', 'Side Hustle', 'Visa Guide', 'Education', 'Scholarship',
+        ];
     }
 }
