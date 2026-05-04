@@ -16,15 +16,12 @@ function getDaysInMonth(year: number, month: number) {
 
     const days: { date: Date; isCurrentMonth: boolean }[] = [];
 
-    // Fill leading days from prev month
     for (let i = firstDay - 1; i >= 0; i--) {
         days.push({ date: new Date(year, month - 2, prevMonthDays - i), isCurrentMonth: false });
     }
-    // Current month
     for (let d = 1; d <= daysInMonth; d++) {
         days.push({ date: new Date(year, month - 1, d), isCurrentMonth: true });
     }
-    // Fill trailing days to complete grid (6 rows)
     const remaining = 42 - days.length;
     for (let d = 1; d <= remaining; d++) {
         days.push({ date: new Date(year, month, d), isCurrentMonth: false });
@@ -53,11 +50,11 @@ export default function MonthGrid({ year, month, events, onDayClick, onEventClic
               });
 
     return (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto bg-background">
             {/* Day headers */}
-            <div className="grid grid-cols-7 border-b border-slate-100">
+            <div className="grid grid-cols-7 border-b border-border">
                 {DAYS.map(day => (
-                    <div key={day} className="py-2 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    <div key={day} className="py-2 text-center text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         <span className="hidden sm:inline">{day}</span>
                         <span className="sm:hidden">{day[0]}</span>
                     </div>
@@ -77,18 +74,18 @@ export default function MonthGrid({ year, month, events, onDayClick, onEventClic
                             key={idx}
                             onClick={() => onDayClick(date)}
                             className={`
-                                border-b border-r border-slate-100 p-1 sm:p-1.5 flex flex-col gap-0.5 cursor-pointer
-                                transition-colors hover:bg-indigo-50/40 min-h-0
-                                ${!isCurrentMonth ? 'bg-slate-50/60' : 'bg-white'}
+                                border-b border-r border-border p-1 sm:p-1.5 flex flex-col gap-0.5 cursor-pointer
+                                transition-colors hover:bg-accent min-h-0
+                                ${isCurrentMonth ? 'bg-background' : 'bg-muted/40'}
                             `}
                         >
                             {/* Date number */}
                             <div className="flex justify-end mb-0.5">
                                 <span className={`
                                     w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-xs sm:text-sm font-semibold rounded-full transition-colors
-                                    ${today ? 'bg-indigo-600 text-white' : ''}
-                                    ${!today && isCurrentMonth ? 'text-slate-700 hover:bg-slate-100' : ''}
-                                    ${!isCurrentMonth ? 'text-slate-300' : ''}
+                                    ${today ? 'bg-primary text-primary-foreground' : ''}
+                                    ${!today && isCurrentMonth ? 'text-foreground hover:bg-accent' : ''}
+                                    ${!isCurrentMonth ? 'text-muted-foreground/50' : ''}
                                 `}>
                                     {date.getDate()}
                                 </span>
@@ -105,7 +102,7 @@ export default function MonthGrid({ year, month, events, onDayClick, onEventClic
                                     />
                                 ))}
                                 {overflow > 0 && (
-                                    <button className="text-[10px] font-semibold text-indigo-500 hover:text-indigo-700 text-left px-2 py-0.5 rounded hover:bg-indigo-50 transition-colors">
+                                    <button className="text-[10px] font-semibold text-primary hover:opacity-70 text-left px-2 py-0.5 rounded hover:bg-accent transition-colors">
                                         +{overflow} more
                                     </button>
                                 )}
