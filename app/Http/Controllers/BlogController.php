@@ -40,21 +40,43 @@ class BlogController extends Controller
 
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'title'       => 'required|string|max:255',
-            'excerpt'     => 'nullable|string|max:500',
-            'content'     => 'required|string',
-            'category'    => 'required|string',
-            'cover_image' => 'nullable|string',
-            'status'      => 'nullable|in:draft,published',
+        $request->validate([
+            'title'            => 'required|string|max:255',
+            'excerpt'          => 'nullable|string|max:500',
+            'content'          => 'required|string',
+            'category'         => 'required|string',
+            'cover_image'      => 'nullable|string',
+            'cover_image_file' => 'nullable|image|max:5120',
         ]);
 
+        $coverImagePath = null;
+
+        // Priority 1: actual file upload (multipart)
+        if ($request->hasFile('cover_image_file')) {
+            $file           = $request->file('cover_image_file');
+            $filename       = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $directory      = public_path('assets/BlogImages');
+            if (!is_dir($directory)) mkdir($directory, 0755, true);
+            $file->move($directory, $filename);
+            $coverImagePath = '/assets/BlogImages/' . $filename;
+        }
+        // Priority 2: base64 data URL from modal drag-drop/file picker
+        elseif ($request->filled('cover_image')) {
+            $imageData = $request->input('cover_image');
+            if (str_starts_with($imageData, 'data:image/')) {
+                $coverImagePath = $this->saveBase64Image($imageData);
+            } else {
+                // Plain URL — store as-is
+                $coverImagePath = $imageData;
+            }
+        }
+
         BlogPost::create([
-            'title'        => $validated['title'],
-            'excerpt'      => $validated['excerpt'] ?? null,
-            'content'      => $validated['content'],
-            'category'     => $validated['category'],
-            'cover_image'  => $validated['cover_image'] ?? null,
+            'title'        => $request->input('title'),
+            'excerpt'      => $request->input('excerpt'),
+            'content'      => $request->input('content'),
+            'category'     => $request->input('category'),
+            'cover_image'  => $coverImagePath,
             'user_id'      => Auth::id(),
             'status'       => 'published',
             'published_at' => now(),
@@ -69,8 +91,46 @@ class BlogController extends Controller
             abort(403);
         }
 
+        // Delete local image file if stored in assets/BlogImages
+        if ($blogPost->cover_image && str_starts_with($blogPost->cover_image, '/assets/BlogImages/')) {
+            $fullPath = public_path($blogPost->cover_image);
+            if (file_exists($fullPath)) {
+                unlink($fullPath);
+            }
+        }
+
         BlogPost::destroy($blogPost->id);
         return back()->with('success', 'Blog post deleted.');
+    }
+
+    private function saveBase64Image(string $base64String): ?string
+    {
+        try {
+            preg_match('/^data:image\/(\w+);base64,/', $base64String, $matches);
+            $extension = $matches[1] ?? 'jpg';
+            if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $extension = 'jpg';
+            }
+
+            $imageData = base64_decode(
+                preg_replace('/^data:image\/\w+;base64,/', '', $base64String)
+            );
+
+            if (!$imageData) return null;
+
+            $filename  = time() . '_' . uniqid() . '.' . $extension;
+            $directory = public_path('assets/BlogImages');
+
+            if (!is_dir($directory)) {
+                mkdir($directory, 0755, true);
+            }
+
+            file_put_contents($directory . '/' . $filename, $imageData);
+
+            return '/assets/BlogImages/' . $filename;
+        } catch (\Exception $e) {
+            return null;
+        }
     }
 
     private function formatPost(BlogPost $post): array
