@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { BLOG_POSTS, CATEGORIES } from "@/layouts/BlogPageLayout/blogData";
 import BlogCard from "./BlogCard";
-import WriteBlogModal from "./WriteBlogModal";
+import WriteBlogModal from "@/layouts/BlogPageLayout/WriteBlogModal";
 import "./BlogPage.css";
 
 export default function BlogPage() {

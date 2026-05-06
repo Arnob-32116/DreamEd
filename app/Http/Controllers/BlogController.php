@@ -5,10 +5,25 @@ namespace App\Http\Controllers;
 use App\Models\BlogPost;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class BlogController extends Controller
 {
+    private string $supabaseUrl;
+    private string $supabaseKey;
+    private string $supabaseBucket;
+
+    public function __construct()
+    {
+        $this->supabaseUrl    = rtrim(config('services.supabase.url', ''), '/');
+        $this->supabaseKey    = config('services.supabase.service_role_key', '');
+        $this->supabaseBucket = config('services.supabase.bucket', 'BlogImages');
+    }
+
+    // ── Blog listing ──────────────────────────────────────────────────────────
     public function index(Request $request)
     {
         $category = (string) $request->get('category', 'All');
@@ -38,45 +53,63 @@ class BlogController extends Controller
         ]);
     }
 
+    // ── Single post ───────────────────────────────────────────────────────────
+    // Route: GET /blogs/{slug}
+    // Inertia renders: resources/js/pages/BlogShow.tsx  →  'BlogShow'
+    public function show(string $slug)
+    {
+        $post = BlogPost::with('user')
+            ->where('status', 'published')
+            ->where(function ($q) use ($slug) {
+                $q->where('slug', $slug)
+                  ->orWhere('id', is_numeric($slug) ? (int) $slug : 0);
+            })
+            ->firstOrFail();
+
+        $post->increment('views');
+
+        $related = BlogPost::with('user')
+            ->where('status', 'published')
+            ->where('category', $post->category)
+            ->where('id', '!=', $post->id)
+            ->orderByDesc('published_at')
+            ->limit(3)
+            ->get()
+            ->map(fn($p) => $this->formatPost($p));
+
+        // 'BlogShow' must exactly match the filename: resources/js/pages/BlogShow.tsx
+        return Inertia::render('BlogShow', [
+            'post'         => $this->formatPost($post),
+            'relatedPosts' => $related,
+        ]);
+    }
+
+    // ── Create post ───────────────────────────────────────────────────────────
     public function store(Request $request)
     {
         $request->validate([
             'title'            => 'required|string|max:255',
             'excerpt'          => 'nullable|string|max:500',
             'content'          => 'required|string',
-            'category'         => 'required|string',
-            'cover_image'      => 'nullable|string',
-            'cover_image_file' => 'nullable|image|max:5120',
+            'category'         => 'required|string|in:Study Abroad,Student Life,Career,Programs,Side Hustle,Visa Guide,Education,Scholarship',
+            'cover_image_file' => 'nullable|image|mimes:jpg,jpeg,png,gif,webp|max:5120',
+            'cover_image_url'  => 'nullable|string|url',
         ]);
 
-        $coverImagePath = null;
+        $coverImageUrl = null;
 
-        // Priority 1: actual file upload (multipart)
         if ($request->hasFile('cover_image_file')) {
-            $file           = $request->file('cover_image_file');
-            $filename       = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $directory      = public_path('assets/BlogImages');
-            if (!is_dir($directory)) mkdir($directory, 0755, true);
-            $file->move($directory, $filename);
-            $coverImagePath = '/assets/BlogImages/' . $filename;
-        }
-        // Priority 2: base64 data URL from modal drag-drop/file picker
-        elseif ($request->filled('cover_image')) {
-            $imageData = $request->input('cover_image');
-            if (str_starts_with($imageData, 'data:image/')) {
-                $coverImagePath = $this->saveBase64Image($imageData);
-            } else {
-                // Plain URL — store as-is
-                $coverImagePath = $imageData;
-            }
+            $coverImageUrl = $this->uploadToSupabase($request->file('cover_image_file'));
+        } elseif ($request->filled('cover_image_url')) {
+            $coverImageUrl = $request->input('cover_image_url');
         }
 
         BlogPost::create([
             'title'        => $request->input('title'),
-            'excerpt'      => $request->input('excerpt'),
+            'excerpt'      => $request->input('excerpt') ?: null,
             'content'      => $request->input('content'),
             'category'     => $request->input('category'),
-            'cover_image'  => $coverImagePath,
+            'cover_image'  => $coverImageUrl,
             'user_id'      => Auth::id(),
             'status'       => 'published',
             'published_at' => now(),
@@ -85,53 +118,90 @@ class BlogController extends Controller
         return redirect()->route('blog.index')->with('success', 'Blog post created.');
     }
 
+    // ── Delete post ───────────────────────────────────────────────────────────
     public function destroy(BlogPost $blogPost)
     {
         if ($blogPost->user_id !== Auth::id()) {
             abort(403);
         }
 
-        // Delete local image file if stored in assets/BlogImages
-        if ($blogPost->cover_image && str_starts_with($blogPost->cover_image, '/assets/BlogImages/')) {
-            $fullPath = public_path($blogPost->cover_image);
-            if (file_exists($fullPath)) {
-                unlink($fullPath);
-            }
+        if ($blogPost->cover_image && $this->isSupabaseUrl($blogPost->cover_image)) {
+            $this->deleteFromSupabase($blogPost->cover_image);
         }
 
-        BlogPost::destroy($blogPost->id);
+        $blogPost->delete();
+
         return back()->with('success', 'Blog post deleted.');
     }
 
-    private function saveBase64Image(string $base64String): ?string
+    // ── Supabase helpers ──────────────────────────────────────────────────────
+
+    private function uploadToSupabase(\Illuminate\Http\UploadedFile $file): ?string
     {
+        if (empty($this->supabaseUrl) || empty($this->supabaseKey)) {
+            Log::error('Supabase config missing — check SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env');
+            return null;
+        }
+
         try {
-            preg_match('/^data:image\/(\w+);base64,/', $base64String, $matches);
-            $extension = $matches[1] ?? 'jpg';
-            if (!in_array($extension, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-                $extension = 'jpg';
+            $extension = $file->getClientOriginalExtension() ?: 'jpg';
+            $path      = 'posts/' . time() . '_' . Str::random(10) . '.' . $extension;
+            $endpoint  = "{$this->supabaseUrl}/storage/v1/object/{$this->supabaseBucket}/{$path}";
+            $mimeType  = $file->getMimeType() ?: 'image/jpeg';
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->supabaseKey}",
+                'Content-Type'  => $mimeType,
+                'x-upsert'      => 'true',
+            ])->withBody(
+                file_get_contents($file->getRealPath()),
+                $mimeType
+            )->post($endpoint);
+
+            if ($response->failed()) {
+                Log::error('Supabase upload failed', [
+                    'status'   => $response->status(),
+                    'body'     => $response->body(),
+                    'endpoint' => $endpoint,
+                ]);
+                return null;
             }
 
-            $imageData = base64_decode(
-                preg_replace('/^data:image\/\w+;base64,/', '', $base64String)
-            );
+            return "{$this->supabaseUrl}/storage/v1/object/public/{$this->supabaseBucket}/{$path}";
 
-            if (!$imageData) return null;
-
-            $filename  = time() . '_' . uniqid() . '.' . $extension;
-            $directory = public_path('assets/BlogImages');
-
-            if (!is_dir($directory)) {
-                mkdir($directory, 0755, true);
-            }
-
-            file_put_contents($directory . '/' . $filename, $imageData);
-
-            return '/assets/BlogImages/' . $filename;
         } catch (\Exception $e) {
+            Log::error('Supabase upload exception', ['message' => $e->getMessage()]);
             return null;
         }
     }
+
+    private function deleteFromSupabase(string $publicUrl): void
+    {
+        try {
+            $prefix = "{$this->supabaseUrl}/storage/v1/object/public/{$this->supabaseBucket}/";
+            if (!str_starts_with($publicUrl, $prefix)) return;
+
+            $objectPath = substr($publicUrl, strlen($prefix));
+
+            Http::withHeaders([
+                'Authorization' => "Bearer {$this->supabaseKey}",
+                'Content-Type'  => 'application/json',
+            ])->delete(
+                "{$this->supabaseUrl}/storage/v1/object/{$this->supabaseBucket}",
+                ['prefixes' => [$objectPath]]
+            );
+        } catch (\Exception $e) {
+            Log::error('Supabase delete exception', ['message' => $e->getMessage()]);
+        }
+    }
+
+    private function isSupabaseUrl(string $url): bool
+    {
+        return !empty($this->supabaseUrl) &&
+               str_starts_with($url, "{$this->supabaseUrl}/storage/v1/object/public/{$this->supabaseBucket}");
+    }
+
+    // ── Formatters ────────────────────────────────────────────────────────────
 
     private function formatPost(BlogPost $post): array
     {
@@ -144,8 +214,8 @@ class BlogController extends Controller
             'category'     => $post->category,
             'cover_image'  => $post->cover_image,
             'status'       => $post->status,
-            'shares'       => $post->shares ?? 0,
-            'views'        => $post->views ?? 0,
+            'shares'       => $post->shares  ?? 0,
+            'views'        => $post->views   ?? 0,
             'readTime'     => $post->read_time,
             'author'       => $post->user->name ?? 'Unknown',
             'authorAvatar' => $post->author_avatar,

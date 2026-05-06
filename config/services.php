@@ -35,4 +35,21 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Supabase
+    |--------------------------------------------------------------------------
+    | url              → your project URL (no trailing slash)
+    | service_role_key → server-side only, never expose to frontend
+    | bucket           → the Storage bucket name
+    */
+    'supabase' => [
+        'url'              => env('SUPABASE_URL'),
+        'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
+        'bucket'           => env('SUPABASE_STORAGE_BUCKET', 'BlogImages'),
+    ],
+
+
+    
+
 ];
