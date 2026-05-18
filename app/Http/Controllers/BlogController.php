@@ -47,15 +47,22 @@ class BlogController extends Controller
 
         $posts = $query->get()->map(fn($post) => $this->formatPost($post));
 
+        // IDs of posts that belong to the current user (used for "My Blogs" tab + delete button)
+        $myPostIds = Auth::check()
+            ? BlogPost::where('user_id', Auth::id())
+                      ->where('status', 'published')
+                      ->pluck('id')
+                      ->toArray()
+            : [];
+
         return Inertia::render('blog', [
             'posts'      => $posts,
             'categories' => $this->getCategories(),
+            'myPostIds'  => $myPostIds,
         ]);
     }
 
     // ── Single post ───────────────────────────────────────────────────────────
-    // Route: GET /blogs/{slug}
-    // Inertia renders: resources/js/pages/BlogShow.tsx  →  'BlogShow'
     public function show(string $slug)
     {
         $post = BlogPost::with('user')
@@ -77,10 +84,10 @@ class BlogController extends Controller
             ->get()
             ->map(fn($p) => $this->formatPost($p));
 
-        // 'BlogShow' must exactly match the filename: resources/js/pages/BlogShow.tsx
         return Inertia::render('BlogShow', [
             'post'         => $this->formatPost($post),
             'relatedPosts' => $related,
+            'isOwner'      => Auth::check() && Auth::id() === $post->user_id,
         ]);
     }
 
@@ -153,10 +160,7 @@ class BlogController extends Controller
                 'Authorization' => "Bearer {$this->supabaseKey}",
                 'Content-Type'  => $mimeType,
                 'x-upsert'      => 'true',
-            ])->withBody(
-                file_get_contents($file->getRealPath()),
-                $mimeType
-            )->post($endpoint);
+            ])->withBody(file_get_contents($file->getRealPath()), $mimeType)->post($endpoint);
 
             if ($response->failed()) {
                 Log::error('Supabase upload failed', [
