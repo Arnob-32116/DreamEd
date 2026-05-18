@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { Checkbox } from '@/components/ui/checkbox';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
 
@@ -34,10 +35,7 @@ export default function Register() {
                                     name="name"
                                     placeholder="Full name"
                                 />
-                                <InputError
-                                    message={errors.name}
-                                    className="mt-2"
-                                />
+                                <InputError message={errors.name} className="mt-2" />
                             </div>
 
                             <div className="grid gap-2">
@@ -79,15 +77,36 @@ export default function Register() {
                                     name="password_confirmation"
                                     placeholder="Confirm password"
                                 />
-                                <InputError
-                                    message={errors.password_confirmation}
-                                />
+                                <InputError message={errors.password_confirmation} />
+                            </div>
+
+                            {/* Contributor checkbox */}
+                            <div className="flex items-start gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 p-4">
+                                    <input
+                                        type="checkbox"
+                                        id="is_contributor"
+                                        name="is_contributor"
+                                        value="1"
+                                        tabIndex={5}
+                                        className="mt-0.5 rounded border-zinc-300"
+                                    />
+                                <div className="flex flex-col gap-1">
+                                    <Label
+                                        htmlFor="is_contributor"
+                                        className="text-sm font-semibold text-zinc-800 dark:text-zinc-100 cursor-pointer"
+                                    >
+                                        Register as a Contributor
+                                    </Label>
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                                        Contributors can submit universities, scholarships, and other educational resources to the platform. Leave unchecked to register as a regular student account.
+                                    </p>
+                                </div>
                             </div>
 
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={5}
+                                tabIndex={6}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
@@ -97,7 +116,7 @@ export default function Register() {
 
                         <div className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
+                            <TextLink href={login()} tabIndex={7}>
                                 Log in
                             </TextLink>
                         </div>
