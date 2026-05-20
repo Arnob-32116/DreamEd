@@ -73,7 +73,7 @@ interface Props {
 }
 
 const CATEGORIES     = ['Public Research', 'Private Research', 'Liberal Arts', 'Technical', 'Community College', 'Other'];
-const DEGREE_TYPES   = ["Bachelor's", "Master's", "PhD", "Diploma", "Certificate"];
+const DEGREE_TYPES = ["Bachelor", "Master", "PhD", "Diploma", "Certificate"];
 const SCHOL_TYPES    = ['Merit-Based', 'Need-Based', 'Athletic', 'Research', 'Government', 'Other'];
 const COVERAGE_TYPES = ['Full Tuition', 'Partial', 'Living Expenses', 'Full Ride'];
 const SUBJECTS_LIST  = ['Computer Science', 'Engineering', 'Business Administration', 'Medicine', 'Law', 'Psychology', 'Economics', 'Physics', 'Mathematics', 'Chemistry', 'Biology', 'Architecture', 'Arts', 'Education', 'Nursing'];
@@ -144,7 +144,7 @@ export default function EditUniversity({ university }: Props) {
 
     // Programs state
     const emptyProgram = (): Program => ({
-        name: '', school: '', degree_type: "Bachelor's", duration: '',
+        name: '', school: '', degree_type: "Bachelor", duration: '',
         tuition_fee: '', application_deadline: '', program_url: '',
         required_qualifications: '', subjects: [],
     });

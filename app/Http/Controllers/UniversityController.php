@@ -280,7 +280,7 @@ class UniversityController extends Controller
         $request->validate([
             'name'                    => 'required|string|max:255',
             'school'                  => 'nullable|string|max:255',
-            'degree_type'             => "required|in:Bachelor's,Master's,PhD,Diploma,Certificate",
+            'degree_type' => "required|in:Bachelor,Master,PhD,Diploma,Certificate",
             'duration'                => 'nullable|string|max:50',
             'tuition_fee'             => 'nullable|numeric|min:0',
             'application_deadline'    => 'nullable|date',
@@ -310,7 +310,7 @@ class UniversityController extends Controller
         $request->validate([
             'name'                    => 'required|string|max:255',
             'school'                  => 'nullable|string|max:255',
-            'degree_type'             => "required|in:Bachelor's,Master's,PhD,Diploma,Certificate",
+            'degree_type' => "required|in:Bachelor,Master,PhD,Diploma,Certificate",
             'duration'                => 'nullable|string|max:50',
             'tuition_fee'             => 'nullable|numeric|min:0',
             'application_deadline'    => 'nullable|date',
