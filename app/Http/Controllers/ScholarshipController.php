@@ -96,6 +96,18 @@ class ScholarshipController extends Controller
         ]);
     }
 
+    public function myIndex()
+{
+    $scholarships = Scholarship::where('created_by', Auth::id())
+        ->orderByDesc('created_at')
+        ->get()
+        ->map(fn($s) => $this->formatScholarship($s));
+
+    return Inertia::render('contributor/scholarships/MyScholarships', [
+        'scholarships' => $scholarships,
+    ]);
+}
+
     // ── Public detail ─────────────────────────────────────────────────────────
     // GET /scholarships/{slug}
     public function show(string $slug)
@@ -182,6 +194,21 @@ class ScholarshipController extends Controller
             ->route('contributor.scholarships.index')
             ->with('success', 'Scholarship created successfully.');
     }
+
+    public function create()
+{
+    return Inertia::render('contributor/scholarships/Create');
+}
+
+public function edit(Scholarship $scholarship)
+{
+    if ($scholarship->created_by !== Auth::id() && !Auth::user()->isAdmin()) {
+        abort(403);
+    }
+    return Inertia::render('contributor/scholarships/Edit', [
+        'scholarship' => $this->formatScholarship($scholarship),
+    ]);
+}
 
     // ── Contributor: update ───────────────────────────────────────────────────
     // PUT /contributor/scholarships/{scholarship}

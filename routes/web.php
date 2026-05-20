@@ -14,7 +14,6 @@ Route::inertia('/', 'welcome', [
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 
-    // ── Public routes (Moved INSIDE auth middleware) ─────────────────────────
     Route::get('/scholarships',        [ScholarshipController::class, 'index'])->name('scholarships.index');
     Route::get('/scholarships/{slug}', [ScholarshipController::class, 'show'])->name('scholarships.show');
 });
@@ -22,31 +21,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 // 3. Students only
 Route::middleware(['auth', 'verified', 'role:student'])->group(function () {
-    // Student only routes will be added here when merging branches
+    // Student only routes here
 });
 
 
 // 4. Contributors only
 Route::middleware(['auth', 'verified', 'role:contributor'])->group(function () {
-    // Contributor only routes will be added here when merging branches
+    // Contributor only routes here
 });
 
 
-// 5. Contributors and Admins (Shared elevated access)
-Route::middleware(['auth', 'verified', 'role:contributor,admin'])->group(function () {
-    
-    // ── Contributor routes (Moved INSIDE contributor,admin middleware) ───────
-    Route::prefix('contributor/scholarships')->name('contributor.scholarships.')->group(function () {
-        Route::post('/',               [ScholarshipController::class, 'store'])  ->name('store');
-        Route::put('/{scholarship}',   [ScholarshipController::class, 'update']) ->name('update');
-        Route::delete('/{scholarship}', [ScholarshipController::class, 'destroy'])->name('destroy');
+// 5. Contributors and Admins
+Route::middleware(['auth', 'verified', 'role:contributor,admin'])
+    ->prefix('contributor/scholarships')
+    ->name('contributor.scholarships.')
+    ->group(function () {
+        Route::get('/',                          [ScholarshipController::class, 'myIndex'])->name('index');   // GET /contributor/scholarships
+        Route::get('/create',                    [ScholarshipController::class, 'create']) ->name('create');  // GET /contributor/scholarships/create
+        Route::post('/',                         [ScholarshipController::class, 'store'])  ->name('store');   // POST /contributor/scholarships
+        Route::get('/{scholarship}/edit',        [ScholarshipController::class, 'edit'])   ->name('edit');    // GET /contributor/scholarships/{id}/edit
+        Route::put('/{scholarship}',             [ScholarshipController::class, 'update']) ->name('update');  // PUT /contributor/scholarships/{id}
+        Route::delete('/{scholarship}',          [ScholarshipController::class, 'destroy'])->name('destroy'); // DELETE /contributor/scholarships/{id}
     });
-});
 
 
 // 6. Admins only
 Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
-    // Admin only routes will be added here when merging branches
+    // Admin only routes here
 });
 
 
