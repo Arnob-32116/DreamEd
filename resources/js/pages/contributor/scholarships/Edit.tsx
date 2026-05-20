@@ -410,7 +410,10 @@ export default function EditScholarship() {
         if (form.logo_file)        fd.append('logo_file',        form.logo_file);
         if (form.cover_image_file) fd.append('cover_image_file', form.cover_image_file);
 
-        fd.append('subject_areas', JSON.stringify(form.subject_areas));
+        form.subject_areas.forEach((area, i) => {
+    fd.append(`subject_areas[${i}][name]`,  area.name);
+    fd.append(`subject_areas[${i}][count]`, String(area.count));
+});
 
         router.post(`/contributor/scholarships/${s.id}`, fd, {
             forceFormData: true,

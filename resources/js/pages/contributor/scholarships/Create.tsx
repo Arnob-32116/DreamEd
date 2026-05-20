@@ -787,7 +787,10 @@ export default function CreateScholarship() {
         if (form.cover_image_file) fd.append('cover_image_file', form.cover_image_file);
 
         // Subject areas as JSON
-        fd.append('subject_areas', JSON.stringify(form.subject_areas));
+        form.subject_areas.forEach((area, i) => {
+    fd.append(`subject_areas[${i}][name]`,  area.name);
+    fd.append(`subject_areas[${i}][count]`, String(area.count));
+});
 
         router.post('/contributor/scholarships', fd, {
             forceFormData: true,
