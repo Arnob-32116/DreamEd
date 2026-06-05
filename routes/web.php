@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\UniversitySearchController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -15,6 +16,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Students only
 Route::middleware(['auth', 'verified', 'role:student'])->group(function () {
     // Student only routes will be added here when merging branches
+     Route::get('/universities',              [UniversitySearchController::class, 'index'])->name('universities.index');
+    Route::post('/universities/ai-search',   [UniversitySearchController::class, 'aiSearch'])->name('universities.ai-search');
+    Route::get('/universities/{slug}',       [UniversitySearchController::class, 'show'])->name('universities.show');
 });
 
 // Contributors only
