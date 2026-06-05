@@ -10,7 +10,13 @@ class EnsureRole
 {
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        if (!$request->user() || !in_array($request->user()->role, $roles)) {
+        // Not logged in
+        if (!$request->user()) {
+            return redirect('/login');
+        }
+
+        // Check if user's role matches any of the allowed roles
+        if (!in_array($request->user()->role, $roles)) {
             abort(403, 'Unauthorized');
         }
 
