@@ -2,18 +2,6 @@
 
 return [
 
-    /*
-    |--------------------------------------------------------------------------
-    | Third Party Services
-    |--------------------------------------------------------------------------
-    |
-    | This file is for storing the credentials for third party services such
-    | as Mailgun, Postmark, AWS and more. This file provides the de facto
-    | location for this type of information, allowing packages to have
-    | a conventional file to locate the various service credentials.
-    |
-    */
-
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],
@@ -35,21 +23,14 @@ return [
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Supabase
-    |--------------------------------------------------------------------------
-    | url              → your project URL (no trailing slash)
-    | service_role_key → server-side only, never expose to frontend
-    | bucket           → the Storage bucket name
-    */
     'supabase' => [
         'url'              => env('SUPABASE_URL'),
         'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
         'bucket'           => env('SUPABASE_STORAGE_BUCKET', 'BlogImages'),
     ],
 
-
-    
+    'gemini' => [
+        'key' => env('GEMINI_API_KEY'),
+    ],
 
 ];

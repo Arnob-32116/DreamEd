@@ -3,6 +3,7 @@
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\BlogController;
 use App\Http\Controllers\UniversityController;
+use App\Http\Controllers\UniversitySearchController;
 use App\Http\Controllers\ScholarshipController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -29,10 +30,11 @@ Route::middleware(['auth', 'verified', 'role:student'])->group(function () {
     Route::post('/blogs', [BlogController::class, 'store'])->name('blogs.store');
     Route::delete('/blogs/{blogPost}', [BlogController::class, 'destroy'])->name('blogs.destroy');
 
-    // Universities (student view)
-    Route::get('/universities', [UniversityController::class, 'index'])->name('universities.index');
+    // Universities — AI search MUST be before {slug}
+   // Universities — AI search MUST be before {slug}
+    Route::get('/universities', [UniversitySearchController::class, 'index'])->name('universities.index');
+    Route::post('/universities/ai-search', [UniversitySearchController::class, 'aiSearch'])->name('universities.ai-search');
     Route::get('/universities/{slug}', [UniversityController::class, 'show'])->name('universities.show');
-
     // Scholarships (student view)
     Route::get('/scholarships', [ScholarshipController::class, 'index'])->name('scholarships.index');
     Route::get('/scholarships/{slug}', [ScholarshipController::class, 'show'])->name('scholarships.show');
