@@ -117,5 +117,5 @@
         "resources/js/**/*.ts",
         "resources/js/**/*.d.ts",
         "resources/js/**/*.tsx"
-, "resources/js/pages/scholarship/ScholarshipShow.tsx"    ]
+, "resources/js/pages/scholarships/show.tsx"    ]
 }
