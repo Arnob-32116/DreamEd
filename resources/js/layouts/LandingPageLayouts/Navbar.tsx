@@ -1,12 +1,25 @@
 import { Link } from '@inertiajs/react';
 import { dashboard, login, register } from '@/routes';
+import { usePage } from '@inertiajs/react';
+import type { Auth } from '@/types/auth';
 
 interface NavbarProps {
     isAuthenticated: boolean;
     canRegister?: boolean;
 }
 
+interface SharedData {
+    auth: Auth;
+    name: string;
+    sidebarOpen: boolean;
+    [key: string]: unknown;
+}
+
 export default function Navbar({ isAuthenticated, canRegister = true }: NavbarProps) {
+    // Moved inside the component body!
+    const { auth } = usePage<SharedData>().props;
+    const role = auth?.user?.role as string;
+
     return (
         <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -25,13 +38,13 @@ export default function Navbar({ isAuthenticated, canRegister = true }: NavbarPr
                     {/* Nav Actions */}
                     <nav className="flex items-center gap-3">
                         {isAuthenticated ? (
-                            <Link
-                                href={dashboard()}
-                                className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-                            >
-                                Dashboard
-                            </Link>
-                        ) : (
+                              <Link
+                                    href={role === 'contributor' || role === 'admin' ? '/contributor/universities' : '/universities'}
+                                    className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
+                                >
+                                {role === 'contributor' || role === 'admin' ? 'My Universities' : 'Universities'}
+                                </Link>
+                            ) : (
                             <>
                                 <Link
                                     href={login()}

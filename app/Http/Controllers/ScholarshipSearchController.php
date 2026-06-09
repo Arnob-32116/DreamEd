@@ -10,6 +10,15 @@ use Inertia\Inertia;
 
 class ScholarshipSearchController extends Controller
 {
+    // ── Valid DB enum values ───────────────────────────────────────────────────
+    private const VALID_TYPES = [
+        'Merit-Based', 'Need-Based', 'Athletic', 'Research', 'Government', 'Other',
+    ];
+
+    private const VALID_COVERAGE_TYPES = [
+        'Fully Funded', 'Partial', 'Tuition Only', 'Living Expenses', 'Full Ride',
+    ];
+
     // ── Main index page ───────────────────────────────────────────────────────
     public function index(Request $request)
     {
@@ -53,6 +62,18 @@ class ScholarshipSearchController extends Controller
             ], 422);
         }
 
+        // Sanitise — drop any values that don't match DB enums
+        // (mirrors the same safety the university one gets from simpler fields)
+        $filters['types'] = array_values(array_intersect(
+            (array) ($filters['types'] ?? []),
+            self::VALID_TYPES
+        ));
+
+        $filters['coverage_types'] = array_values(array_intersect(
+            (array) ($filters['coverage_types'] ?? []),
+            self::VALID_COVERAGE_TYPES
+        ));
+
         $scholarships = $this->queryScholarships($filters);
 
         return response()->json([
@@ -64,6 +85,8 @@ class ScholarshipSearchController extends Controller
     }
 
     // ── Parse prompt with Gemini ──────────────────────────────────────────────
+    // Mirrors UniversitySearchController exactly — no responseMimeType,
+    // same Http call structure, same json_decode pattern.
     private function parsePromptWithGemini(string $prompt): ?array
     {
         $apiKey = config('services.gemini.key');
@@ -79,39 +102,47 @@ extract structured search filters and return ONLY a valid JSON object with NO ex
 
 Extract these fields (all optional, use null if not mentioned):
 {
-  "country_codes": ["DE","US"],          // Array of ISO country codes for the scholarship's origin country
-  "types": ["Merit-Based","Government"], // From: Merit-Based, Need-Based, Athletic, Research, Government, Other
-  "coverage_types": ["Fully Funded"],    // From: Fully Funded, Partial, Tuition Only, Living Expenses, Full Ride
-  "subjects": ["Engineering"],           // Subject/field areas
-  "institutions": ["DAAD","Fulbright"],  // Specific institution names if mentioned
-  "min_monthly": 500,                    // Minimum monthly stipend in USD
-  "max_tuition_coverage": 50000,         // Maximum tuition coverage in USD (0 = fully covered)
-  "min_recipients": 10,                  // Minimum number of recipients
-  "currencies": ["EUR","USD"],           // Preferred currencies
+  "country_codes": ["DE","US"],
+  "types": ["Merit-Based"],
+  "coverage_types": ["Fully Funded"],
+  "subjects": ["Engineering"],
+  "institutions": ["DAAD"],
+  "min_monthly": 800,
+  "currencies": ["EUR"],
   "interpreted_as": "Brief human-readable summary of what was searched for"
 }
 
+IMPORTANT — "types" must ONLY contain values from this list (copy exactly, spelling matters):
+"Merit-Based", "Need-Based", "Athletic", "Research", "Government", "Other"
+Do NOT put degree levels like Master's, PhD, Bachelor's in types. Those are not scholarship types.
+
+IMPORTANT — "coverage_types" must ONLY contain values from this list (copy exactly):
+"Fully Funded", "Partial", "Tuition Only", "Living Expenses", "Full Ride"
+Do NOT put "stipend", "grant", or "fellowship" in coverage_types.
+
 Country code mappings:
-USA/United States = US, UK/United Kingdom/Britain = GB, Canada = CA,
+USA/United States = US, UK/United Kingdom = GB, Canada = CA,
 Germany = DE, Australia = AU, France = FR, Japan = JP, China = CN,
 Singapore = SG, Bangladesh = BD, Netherlands = NL, Sweden = SE,
-Switzerland = CH, South Korea = KR, India = IN, Europe (general) = DE,GB,FR,NL,SE,CH
+Switzerland = CH, South Korea = KR, India = IN,
+Europe (general) = DE,GB,FR,NL,SE,CH
 
 Type mappings:
-"government scholarship" = Government
 "merit scholarship" or "academic excellence" = Merit-Based
 "need-based" or "financial need" = Need-Based
-"research funding" = Research
+"research funding" or "research grant" = Research
+"government scholarship" or "national scholarship" = Government
 
 Coverage mappings:
-"full scholarship" or "fully funded" = Fully Funded
+"fully funded" or "full scholarship" or "full funding" = Fully Funded
 "full ride" = Full Ride
-"tuition only" = Tuition Only
 "partial" = Partial
+"tuition only" = Tuition Only
+"living allowance" = Living Expenses
 
-"high stipend" or "good stipend" = min_monthly of 800
-"reasonable stipend" = min_monthly of 500
-"living allowance" = Living Expenses coverage
+Stipend mappings:
+"high stipend" = min_monthly of 800
+"good stipend" or "reasonable stipend" = min_monthly of 500
 
 User query: {$prompt}
 PROMPT;
@@ -121,7 +152,11 @@ PROMPT;
                 'Content-Type' => 'application/json',
             ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={$apiKey}", [
                 'contents' => [
-                    ['parts' => [['text' => $systemPrompt]]],
+                    [
+                        'parts' => [
+                            ['text' => $systemPrompt],
+                        ],
+                    ],
                 ],
                 'generationConfig' => [
                     'temperature'     => 0.1,
@@ -142,6 +177,7 @@ PROMPT;
 
             if (!$text) return null;
 
+            // Strip markdown code fences if present
             $text    = preg_replace('/```json\s*|\s*```/', '', trim($text));
             $filters = json_decode($text, true);
 
@@ -158,7 +194,7 @@ PROMPT;
         }
     }
 
-    // ── Extract filters from request ──────────────────────────────────────────
+    // ── Extract filters from GET request (manual filter panel) ────────────────
     private function extractFilters(Request $request): array
     {
         return [
@@ -168,6 +204,7 @@ PROMPT;
             'subjects'       => $request->get('subjects', []),
             'institutions'   => $request->get('institutions', []),
             'min_monthly'    => $request->integer('min_monthly', 0),
+            'currencies'     => $request->get('currencies', []),
             'search'         => $request->get('search'),
         ];
     }
@@ -180,15 +217,24 @@ PROMPT;
             ->orderByDesc('created_at');
 
         if (!empty($filters['country_codes'])) {
-            $query->whereIn('country_code', $filters['country_codes']);
+            $query->whereIn('country_code', array_map('strtoupper', $filters['country_codes']));
         }
 
-        if (!empty($filters['types'])) {
-            $query->whereIn('type', $filters['types']);
+        // Guard: only query with valid enum values so whereIn never returns zero from bad data
+        $validTypes = array_values(array_intersect(
+            (array) ($filters['types'] ?? []),
+            self::VALID_TYPES
+        ));
+        if (!empty($validTypes)) {
+            $query->whereIn('type', $validTypes);
         }
 
-        if (!empty($filters['coverage_types'])) {
-            $query->whereIn('coverage_type', $filters['coverage_types']);
+        $validCoverage = array_values(array_intersect(
+            (array) ($filters['coverage_types'] ?? []),
+            self::VALID_COVERAGE_TYPES
+        ));
+        if (!empty($validCoverage)) {
+            $query->whereIn('coverage_type', $validCoverage);
         }
 
         if (!empty($filters['institutions'])) {
@@ -206,13 +252,16 @@ PROMPT;
         if (!empty($filters['subjects'])) {
             $query->where(function ($q) use ($filters) {
                 foreach ($filters['subjects'] as $subject) {
-                    $q->orWhereJsonContains('subject_areas', $subject);
+                    $q->orWhereRaw(
+                        "JSON_SEARCH(LOWER(subject_areas), 'one', ?) IS NOT NULL",
+                        [strtolower($subject)]
+                    );
                 }
             });
         }
 
         if (!empty($filters['currencies'])) {
-            $query->whereIn('currency', $filters['currencies']);
+            $query->whereIn('currency', array_map('strtoupper', $filters['currencies']));
         }
 
         if (!empty($filters['search'])) {
@@ -224,7 +273,9 @@ PROMPT;
             });
         }
 
-        return $query->get()->map(fn($s) => $this->formatScholarship($s))->toArray();
+        return $query->get()
+            ->map(fn($s) => $this->formatScholarship($s))
+            ->toArray();
     }
 
     // ── Format scholarship for frontend ──────────────────────────────────────

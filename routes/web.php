@@ -5,6 +5,7 @@ use App\Http\Controllers\BlogController;
 use App\Http\Controllers\UniversityController;
 use App\Http\Controllers\UniversitySearchController;
 use App\Http\Controllers\ScholarshipController;
+use App\Http\Controllers\ScholarshipSearchController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -36,8 +37,10 @@ Route::middleware(['auth', 'verified', 'role:student'])->group(function () {
     Route::post('/universities/ai-search', [UniversitySearchController::class, 'aiSearch'])->name('universities.ai-search');
     Route::get('/universities/{slug}', [UniversityController::class, 'show'])->name('universities.show');
     // Scholarships (student view)
-    Route::get('/scholarships', [ScholarshipController::class, 'index'])->name('scholarships.index');
-    Route::get('/scholarships/{slug}', [ScholarshipController::class, 'show'])->name('scholarships.show');
+   // ADD these two lines alongside your existing scholarship routes
+    Route::get('/scholarships', [ScholarshipSearchController::class, 'index'])->name('scholarships.index');
+    Route::post('/scholarships/ai-search', [ScholarshipSearchController::class, 'aiSearch'])->name('scholarships.ai-search');
+    Route::get('/scholarships/{slug}', [ScholarshipSearchController::class, 'show'])->name('scholarships.show');
 });
 
 // Contributors only

@@ -13,6 +13,10 @@ use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use Laravel\Fortify\Fortify;
 
+// Add these two imports to handle the custom redirects!
+use Laravel\Fortify\Contracts\LoginResponse;
+use Laravel\Fortify\Contracts\RegisterResponse;
+
 class FortifyServiceProvider extends ServiceProvider
 {
     /**
@@ -31,6 +35,38 @@ class FortifyServiceProvider extends ServiceProvider
         $this->configureActions();
         $this->configureViews();
         $this->configureRateLimiting();
+
+        // ---------------------------------------------------------
+        // CUSTOM ROLE-BASED REDIRECTS FOR LOGIN & REGISTRATION
+        // ---------------------------------------------------------
+        
+        // 1. Redirect after Login
+        $this->app->singleton(LoginResponse::class, function () {
+            return new class implements LoginResponse {
+                public function toResponse($request)
+                {
+                    $user = $request->user();
+                    if ($user->isContributor() || $user->isAdmin()) {
+                        return redirect()->intended('/contributor/universities');
+                    }
+                    return redirect()->intended('/universities');
+                }
+            };
+        });
+
+        // 2. Redirect after Registration
+        $this->app->singleton(RegisterResponse::class, function () {
+            return new class implements RegisterResponse {
+                public function toResponse($request)
+                {
+                    $user = $request->user();
+                    if ($user->isContributor() || $user->isAdmin()) {
+                        return redirect()->intended('/contributor/universities');
+                    }
+                    return redirect()->intended('/universities');
+                }
+            };
+        });
     }
 
     /**
